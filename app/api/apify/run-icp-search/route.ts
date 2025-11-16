@@ -278,8 +278,15 @@ async function logApifyUsage(
   try {
     await connectToDatabase();
     
+    // Check if MongoDB connection is ready
+    const mongoose = (global as any).mongoose;
+    if (!mongoose || !mongoose.connection || !mongoose.connection.db) {
+      console.warn('⚠️  MongoDB not connected, skipping usage log');
+      return;
+    }
+    
     // Store in a collection for monitoring
-    const db = (global as any).mongoose.connection.db;
+    const db = mongoose.connection.db;
     await db.collection('apify_usage_logs').insertOne({
       apify_run_id: apifyRunId,
       client_ip: clientIp,
