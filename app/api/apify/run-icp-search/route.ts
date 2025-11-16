@@ -1,9 +1,9 @@
 /**
  * Apify Actor Backend Endpoint
- * 
+ *
  * This endpoint receives requests from the Backtick Apify Actor
  * and returns AI-scored leads from LinkedIn Sales Navigator (Apollo)
- * 
+ *
  * NO API KEY REQUIRED - Tracks usage by Apify Run ID instead
  */
 
@@ -64,14 +64,14 @@ const LIMITS = {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  
+
   try {
     console.log('🚀 Apify Actor request received');
-    
+
     // 1. Parse request
     const body: ApifyRequest = await request.json();
     const apifyRunId = body.apify_run_id || request.headers.get('x-apify-run-id') || 'unknown';
-    
+
     console.log('📋 Request:', {
       apifyRunId,
       icp: body.icp_description.substring(0, 50) + '...',
@@ -79,41 +79,41 @@ export async function POST(request: NextRequest) {
       maxRawLeads: body.max_raw_leads,
       topN: body.top_n,
     });
-    
+
     // 2. Validate input
     if (!body.icp_description || body.icp_description.length < 50) {
       return NextResponse.json(
-        { 
-          error: 'ValidationError', 
-          message: 'ICP description required (min 50 characters)' 
+        {
+          error: 'ValidationError',
+          message: 'ICP description required (min 50 characters)'
         },
         { status: 400 }
       );
     }
-    
+
     if (!body.job_titles || body.job_titles.length === 0) {
       return NextResponse.json(
-        { 
-          error: 'ValidationError', 
-          message: 'At least one job title required' 
+        {
+          error: 'ValidationError',
+          message: 'At least one job title required'
         },
         { status: 400 }
       );
     }
-    
+
     // 3. Enforce hard limits
     const maxRawLeads = Math.min(body.max_raw_leads, LIMITS.MAX_RAW_LEADS);
     const topN = Math.min(body.top_n, LIMITS.MAX_TOP_N);
-    
+
     console.log('🔒 Limits enforced:', { maxRawLeads, topN });
-    
+
     // 4. Check rate limit (optional - track by Apify Run ID or IP)
     const clientIp = request.headers.get('x-forwarded-for') || 'unknown';
     await logApifyUsage(apifyRunId, clientIp, body);
-    
+
     // 5. Search Apollo (your existing function)
     console.log('🔍 Searching Apollo...');
-    
+
     const apolloResults = await searchPeople({
       person_titles: body.job_titles,
       person_locations: body.locations,
@@ -121,27 +121,46 @@ export async function POST(request: NextRequest) {
       per_page: Math.min(maxRawLeads, 25), // Apollo's per_page limit
       page: 1,
     });
-    
+
+    // Check if Apollo returned valid results
+    if (!apolloResults || !apolloResults.people || !Array.isArray(apolloResults.people)) {
+      console.error('❌ Apollo returned invalid results:', apolloResults);
+      throw new Error('Apollo API returned invalid response');
+    }
+
     console.log(`✅ Apollo returned ${apolloResults.people.length} leads`);
-    
+
     // 6. Enrich emails (your existing function)
     console.log('💌 Enriching emails...');
-    
-    const peopleToEnrich = apolloResults.people.map(p => ({
-      id: p.id,
-      first_name: p.first_name,
-      last_name: p.last_name,
-      organization_name: p.organization?.name,
-      domain: p.organization?.website_url,
-      linkedin_url: p.linkedin_url,
-    }));
-    
-    const enrichedData = await batchEnrichPeople(peopleToEnrich);
-    console.log(`✅ Enriched ${enrichedData.size} emails`);
-    
+
+    const peopleToEnrich = apolloResults.people
+      .filter(p => p && p.id) // Only enrich valid people with IDs
+      .map(p => ({
+        id: p.id,
+        first_name: p.first_name || '',
+        last_name: p.last_name || '',
+        organization_name: p.organization?.name || '',
+        domain: p.organization?.website_url || '',
+        linkedin_url: p.linkedin_url || '',
+      }));
+
+    let enrichedData = new Map();
+
+    if (peopleToEnrich.length > 0) {
+      try {
+        enrichedData = await batchEnrichPeople(peopleToEnrich);
+        console.log(`✅ Enriched ${enrichedData.size} emails`);
+      } catch (enrichError) {
+        console.error('⚠️  Email enrichment failed, continuing without enrichment:', enrichError);
+        // Continue without enrichment - don't fail the whole request
+      }
+    } else {
+      console.warn('⚠️  No people to enrich');
+    }
+
     // 7. AI scoring (your existing function)
     console.log('🤖 AI scoring leads against ICP...');
-    
+
     // Create a temporary ICP profile for scoring
     const tempICP = {
       description: body.icp_description,
@@ -152,45 +171,67 @@ export async function POST(request: NextRequest) {
       targetKeywords: body.keywords_include || [],
       excludeKeywords: body.keywords_exclude || [],
     };
-    
+
     const scoredLeads = await Promise.all(
-      apolloResults.people.map(async (person) => {
-        const enriched = enrichedData.get(person.id);
-        const phoneFromSearch = extractPhoneNumber(person.phone_numbers);
-        
-        // Score this lead against ICP
-        const qualification = await qualifyLead(person, tempICP);
-        
-        return {
-          full_name: person.name,
-          job_title: person.title,
-          company_name: person.organization?.name || 'Unknown',
-          company_website: person.organization?.website_url,
-          company_size: getCompanySize(person.organization?.estimated_num_employees),
-          industry: person.organization?.industry,
-          location: `${person.city || ''}, ${person.country || ''}`.trim(),
-          email: enriched?.email || '',
-          phone: phoneFromSearch,
-          linkedin_url: person.linkedin_url,
-          fit_score: qualification.score,
-          fit_reason: qualification.reason,
-          fit_label: qualification.label,
-        };
-      })
+      apolloResults.people
+        .filter(person => person && person.id) // Filter out invalid people
+        .map(async (person) => {
+          try {
+            const enriched = enrichedData.get(person.id);
+            const phoneFromSearch = extractPhoneNumber(person.phone_numbers);
+
+            // Score this lead against ICP
+            const qualification = await qualifyLead(person, tempICP);
+
+            return {
+              full_name: person.name || 'Unknown',
+              job_title: person.title || 'Unknown',
+              company_name: person.organization?.name || 'Unknown',
+              company_website: person.organization?.website_url || '',
+              company_size: getCompanySize(person.organization?.estimated_num_employees),
+              industry: person.organization?.industry || 'Unknown',
+              location: `${person.city || ''}, ${person.country || ''}`.trim() || 'Unknown',
+              email: enriched?.email || '',
+              phone: phoneFromSearch || '',
+              linkedin_url: person.linkedin_url || '',
+              fit_score: qualification.score,
+              fit_reason: qualification.reason,
+              fit_label: qualification.label,
+            };
+          } catch (scoreError) {
+            console.error(`⚠️  Failed to score lead ${person.id}:`, scoreError);
+            // Return a default low-score lead so we don't lose data
+            return {
+              full_name: person.name || 'Unknown',
+              job_title: person.title || 'Unknown',
+              company_name: person.organization?.name || 'Unknown',
+              company_website: person.organization?.website_url || '',
+              company_size: getCompanySize(person.organization?.estimated_num_employees),
+              industry: person.organization?.industry || 'Unknown',
+              location: `${person.city || ''}, ${person.country || ''}`.trim() || 'Unknown',
+              email: '',
+              phone: '',
+              linkedin_url: person.linkedin_url || '',
+              fit_score: 0,
+              fit_reason: 'Error scoring lead',
+              fit_label: 'bad' as const,
+            };
+          }
+        })
     );
-    
+
     console.log(`✅ Scored ${scoredLeads.length} leads`);
-    
+
     // 8. Sort by score and take top N
     scoredLeads.sort((a, b) => b.fit_score - a.fit_score);
     const topLeads = scoredLeads.slice(0, topN);
-    
-    const avgScore = topLeads.length > 0 
-      ? topLeads.reduce((sum, l) => sum + l.fit_score, 0) / topLeads.length 
+
+    const avgScore = topLeads.length > 0
+      ? topLeads.reduce((sum, l) => sum + l.fit_score, 0) / topLeads.length
       : 0;
-    
+
     console.log(`✅ Returning top ${topLeads.length} leads (avg score: ${avgScore.toFixed(1)})`);
-    
+
     // 9. Return response
     const response = {
       job_id: `apify_${apifyRunId}_${Date.now()}`,
@@ -204,13 +245,13 @@ export async function POST(request: NextRequest) {
       },
       leads: topLeads,
     };
-    
+
     console.log('✅ Request completed successfully');
     return NextResponse.json(response);
-    
+
   } catch (error: any) {
     console.error('❌ Apify endpoint error:', error);
-    
+
     // Check for specific errors
     if (error.message?.includes('quota') || error.message?.includes('credits')) {
       return NextResponse.json(
@@ -223,7 +264,7 @@ export async function POST(request: NextRequest) {
         { status: 402 }
       );
     }
-    
+
     return NextResponse.json(
       {
         error: 'InternalServerError',
@@ -243,7 +284,7 @@ export async function POST(request: NextRequest) {
  */
 function translateCompanySizes(sizes?: string[]): string[] {
   if (!sizes || sizes.length === 0) return [];
-  
+
   return sizes.map(size => {
     // "11-50" → "11,50"
     return size.replace('-', ',');
@@ -255,7 +296,7 @@ function translateCompanySizes(sizes?: string[]): string[] {
  */
 function getCompanySize(employees?: number): string {
   if (!employees) return 'Unknown';
-  
+
   if (employees <= 10) return '1-10';
   if (employees <= 50) return '11-50';
   if (employees <= 200) return '51-200';
@@ -271,20 +312,20 @@ function getCompanySize(employees?: number): string {
  * Tracks usage by Apify Run ID (no user auth needed)
  */
 async function logApifyUsage(
-  apifyRunId: string, 
-  clientIp: string, 
+  apifyRunId: string,
+  clientIp: string,
   request: ApifyRequest
 ): Promise<void> {
   try {
     await connectToDatabase();
-    
+
     // Check if MongoDB connection is ready
     const mongoose = (global as any).mongoose;
     if (!mongoose || !mongoose.connection || !mongoose.connection.db) {
       console.warn('⚠️  MongoDB not connected, skipping usage log');
       return;
     }
-    
+
     // Store in a collection for monitoring
     const db = mongoose.connection.db;
     await db.collection('apify_usage_logs').insertOne({
@@ -297,7 +338,7 @@ async function logApifyUsage(
       timestamp: new Date(),
       source: request.source,
     });
-    
+
     console.log('📊 Usage logged for run:', apifyRunId);
   } catch (error) {
     console.error('⚠️  Failed to log usage:', error);
