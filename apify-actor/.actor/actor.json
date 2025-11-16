@@ -1,0 +1,46 @@
+{
+  "actorSpecification": 1,
+  "name": "linkedin-sales-navigator-ai-icp-lead-extractor",
+  "title": "LinkedIn Sales Navigator AI ICP Lead Extractor (No Cookies Required)",
+  "version": "1.0.0",
+  "buildTag": "latest",
+  "dockerfile": "./Dockerfile",
+  "readme": "./README.md",
+  "description": "Extract B2B leads with LinkedIn Sales Navigator quality - no cookies needed! AI-powered ICP scoring ranks 1000+ leads and returns only your top 300-500 best-fit prospects. Get enriched contact data (emails, phones, LinkedIn profiles) ready for outreach.",
+  "categories": ["BUSINESS"],
+  "storages": {
+    "dataset": {
+      "actorSpecification": 1,
+      "views": {
+        "overview": {
+          "title": "AI-Ranked Leads",
+          "transformation": {
+            "fields": [
+              "full_name",
+              "job_title",
+              "company_name",
+              "fit_score",
+              "email",
+              "linkedin_url",
+              "location"
+            ]
+          },
+          "display": {
+            "component": "table",
+            "columns": [
+              { "label": "Name", "format": "text" },
+              { "label": "Title", "format": "text" },
+              { "label": "Company", "format": "text" },
+              { "label": "Fit Score", "format": "number" },
+              { "label": "Email", "format": "text" },
+              { "label": "LinkedIn", "format": "link" },
+              { "label": "Location", "format": "text" }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "input": "./input_schema.json"
+}
+

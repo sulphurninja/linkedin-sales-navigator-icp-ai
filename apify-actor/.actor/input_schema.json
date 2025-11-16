@@ -1,0 +1,108 @@
+{
+  "title": "LinkedIn Sales Navigator AI ICP Lead Extractor - Input Configuration",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "icp_description": {
+      "title": "Ideal Customer Profile (ICP) Description",
+      "type": "string",
+      "description": "Describe your perfect customer in detail. Our AI will score every lead against this profile. Example: 'B2B SaaS founders in US with 50-200 employees, using HubSpot, interested in AI automation'",
+      "editor": "textarea",
+      "minLength": 50,
+      "maxLength": 2000,
+      "prefill": "Founders and CEOs at B2B SaaS startups in the United States with 11-200 employees, currently using CRM tools like HubSpot or Salesforce, interested in sales automation and AI-powered lead generation."
+    },
+    "job_titles": {
+      "title": "Target Job Titles (Required)",
+      "type": "array",
+      "description": "LinkedIn job titles to target. Be specific! Examples: 'CEO', 'Founder', 'VP of Marketing', 'Head of Sales', 'Chief Technology Officer'",
+      "editor": "stringList",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "minLength": 2
+      },
+      "prefill": ["CEO", "Founder", "Co-Founder", "VP Marketing", "Head of Marketing"]
+    },
+    "locations": {
+      "title": "Locations (Optional)",
+      "type": "array",
+      "description": "Geographic locations to target. Examples: 'United States', 'California', 'San Francisco', 'New York'",
+      "editor": "stringList",
+      "items": {
+        "type": "string"
+      },
+      "example": ["United States", "Canada"]
+    },
+    "industries": {
+      "title": "Industries (Optional)",
+      "type": "array",
+      "description": "Target industries. Examples: 'SaaS', 'Software', 'Information Technology', 'E-commerce'",
+      "editor": "stringList",
+      "items": {
+        "type": "string"
+      },
+      "example": ["SaaS", "Software"]
+    },
+    "company_sizes": {
+      "title": "Company Sizes (Optional)",
+      "type": "array",
+      "description": "Company size ranges to target",
+      "editor": "select",
+      "items": {
+        "type": "string",
+        "enum": ["1-10", "11-50", "51-200", "201-500", "501-1000", "1001-5000", "5001-10000", "10000+"]
+      },
+      "example": ["11-50", "51-200"]
+    },
+    "keywords_include": {
+      "title": "Keywords to Include (Optional)",
+      "type": "array",
+      "description": "Keywords that must appear in profiles. Examples: 'AI', 'automation', 'CRM', 'B2B'",
+      "editor": "stringList",
+      "items": {
+        "type": "string"
+      },
+      "example": ["AI", "automation"]
+    },
+    "keywords_exclude": {
+      "title": "Keywords to Exclude (Optional)",
+      "type": "array",
+      "description": "Keywords to filter out. Examples: 'student', 'intern', 'recruiter'",
+      "editor": "stringList",
+      "items": {
+        "type": "string"
+      },
+      "example": ["student", "intern"]
+    },
+    "max_raw_leads": {
+      "title": "Max Raw Leads to Search",
+      "type": "integer",
+      "description": "How many leads to initially search before AI filters them. Higher = more comprehensive but slower. HARD CAP: 1000 leads.",
+      "default": 1000,
+      "minimum": 100,
+      "maximum": 1000,
+      "unit": "leads"
+    },
+    "top_n": {
+      "title": "Top ICP-Matched Leads to Return",
+      "type": "integer",
+      "description": "After AI scoring, return only the TOP N best-fit leads. These are your highest-quality prospects. HARD CAP: 500 leads.",
+      "default": 300,
+      "minimum": 50,
+      "maximum": 500,
+      "unit": "leads"
+    },
+    "output_format": {
+      "title": "Output Format",
+      "type": "string",
+      "description": "Choose output format",
+      "editor": "select",
+      "enum": ["json", "csv", "both"],
+      "default": "json"
+    }
+  },
+  "required": ["icp_description", "job_titles"]
+}
+

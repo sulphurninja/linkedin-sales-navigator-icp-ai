@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+apify_storage/
+*.log
+.DS_Store
+

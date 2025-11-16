@@ -1,0 +1,52 @@
+{
+  "icp_description": "Founders and CEOs at B2B SaaS startups in the United States with 11-200 employees. Companies should be using modern sales/marketing tools like HubSpot, Salesforce, or Outreach. Looking for decision-makers interested in sales automation, AI-powered outreach, and improving sales efficiency. Ideal targets are companies in growth stage (Series A-B), actively hiring for sales/marketing roles, and showing revenue growth.",
+  "job_titles": [
+    "CEO",
+    "Founder",
+    "Co-Founder",
+    "Chief Executive Officer",
+    "VP Marketing",
+    "Head of Marketing",
+    "CMO",
+    "Chief Marketing Officer"
+  ],
+  "locations": [
+    "United States",
+    "San Francisco",
+    "New York",
+    "Austin",
+    "Seattle",
+    "Boston"
+  ],
+  "industries": [
+    "Software",
+    "SaaS",
+    "Computer Software",
+    "Information Technology",
+    "Internet"
+  ],
+  "company_sizes": [
+    "11-50",
+    "51-200"
+  ],
+  "keywords_include": [
+    "B2B",
+    "SaaS",
+    "sales automation",
+    "outbound",
+    "CRM",
+    "HubSpot",
+    "Salesforce"
+  ],
+  "keywords_exclude": [
+    "student",
+    "intern",
+    "entry level",
+    "recruiter",
+    "recruiting",
+    "agency"
+  ],
+  "max_raw_leads": 1000,
+  "top_n": 300,
+  "output_format": "both"
+}
